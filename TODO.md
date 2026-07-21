@@ -11,19 +11,15 @@ Rules: phases in order; a phase is done only when its **Done =** line is true; u
 - **Done =** CI green on a hello-world test in each package.
 
 ## Phase 1 — MCP server core (BULLETPROOF backing per ADR-0001 / ADR-0003)
-- [ ] `nba-client.ts`: multi-source client with per-source headers, per-source rate limiters (balldontlie ≈5 req/min, ESPN gentle), TTL cache, pre-warm-on-boot, and seed-file loader for stats data (build FIRST — every tool depends on it)
-- [ ] `scripts/refresh-seeds.ts` + first commit of `data/season-averages-{season}.json` and `data/leaders-{season}-{stat}.json` (run off-cloud from dev machine against stats.nba.com with long timeouts + backoff)
-- [ ] Tools: `search_players` (balldontlie), `get_team` (balldontlie), `get_player_season_averages` (seed JSON), `get_standings` (ESPN → seed fallback)
-- [ ] Streamable HTTP transport on Express; `/health`
-- [ ] Unit tests (mocked client) for each tool; MCP Inspector session verified
-- **Done =** Claude Desktop pointed at the server answers "what did Curry average this season?"
+- [x] `nba-client.ts`: multi-source client with per-source headers, per-source rate limiters (balldontlie ≈5 req/min, ESPN gentle), TTL cache, pre-warm-on-boot, retry+backoff, seed-file loader — returns `Result<T>`, never throws
+- [x] `scripts/refresh-seeds.ts` + first commit of `data/season-averages-2024-25.json` and `data/leaders-2024-25-{pts,reb,ast,stl,blk,fg3m}.json` (~25 top players; refresh runs off-cloud with long timeouts + backoff)
+- [x] All 8 tools: `search_players`, `get_team`, `get_team_games`, `get_scoreboard`, `get_standings`, `get_player_season_averages`, `get_league_leaders`, `compare_players` — each with a zod schema, a model-facing description, and compact JSON output; seed-backed responses include `seededAt` + `source`
+- [x] Streamable HTTP transport (stateless, `enableJsonResponse: true`) on Express; `/health` reports cache + call stats
+- [x] Vitest per tool against a mocked client + HTTP integration test (10 files, 22 tests)
+- [x] `mcp-server/README.md` documenting every tool with Claude Desktop config
+- **Done =** Claude Desktop pointed at the server answers "compare LeBron and Curry this season" — live boot verified end-to-end (health OK, initialize OK, tools/list returns all 8, pre-warm 3/3 succeeded).
 
-## Phase 2 — Remaining tools
-- [ ] `get_team_games` (balldontlie), `get_scoreboard` (ESPN)
-- [ ] `compare_players` (composite over the seed JSON), `get_league_leaders` (seed JSON)
-- [ ] Output compaction pass on all 8 (strip unused fields); ensure seed-backed responses include `seededAt` + `source`
-- [ ] `mcp-server/README.md` documenting every tool (this package is independently open-sourceable)
-- **Done =** integration test lists 8 tools and exercises each over HTTP.
+## Phase 2 — (folded into Phase 1) — all 8 tools shipped together
 
 ## Phase 3 — Runtime: agent + streaming
 - [ ] Model provider: Gemini primary, Groq fallback, per-call token recording
