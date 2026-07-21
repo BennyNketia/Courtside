@@ -1,0 +1,17 @@
+{
+  "name": "@courtside/eval",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Courtside eval harness — 40-case dataset + runner + reports (Phase 6).",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}
