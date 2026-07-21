@@ -1,0 +1,89 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg-0: #08090A;
+  --bg-1: #0F1011;
+  --bg-2: #141516;
+  --bg-3: #1C1C1F;
+  --bg-4: #232326;
+
+  /* Text */
+  --text-1: #F7F8F8;
+  --text-2: #D0D6E0;
+  --text-3: #8A8F98;
+  --text-4: #62666D;
+
+  /* Accent */
+  --accent: #5E6AD2;
+  --accent-hover: #828FFF;
+  --accent-active: #7070FF;
+
+  /* Semantic */
+  --agent: #00B8CC;
+  --success: #27A644;
+  --warning: #F0BF00;
+  --error: #EB5757;
+  --info: #4EA7FC;
+  --court: #FC7840;
+
+  /* Borders */
+  --border-hairline: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.10);
+  --border-solid: #23252A;
+
+  /* Elevation */
+  --elev-border: 0 0 0 1px var(--border-hairline);
+  --elev-border-strong: 0 0 0 1px var(--border-strong);
+  --elev-low: 0 0 0 1px var(--border-hairline), 0 1px 4px -1px rgba(0, 0, 0, 0.3);
+  --elev-high: 0 0 0 1px var(--border-strong), 0 7px 32px rgba(0, 0, 0, 0.45);
+
+  /* Radius */
+  --r-control: 8px;
+  --r-card: 12px;
+  --r-panel: 16px;
+  --r-pill: 9999px;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 12px;
+  --sp-5: 16px;
+  --sp-6: 20px;
+  --sp-7: 24px;
+  --sp-8: 32px;
+  --sp-9: 48px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'Berkeley Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Motion */
+  --dur-fast: 100ms;
+  --dur-base: 150ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes courtside-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes courtside-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes courtside-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
