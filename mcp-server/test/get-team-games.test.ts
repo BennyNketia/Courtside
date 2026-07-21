@@ -35,4 +35,44 @@ describe('get_team_games', () => {
     expect(payload.games[0]!.date).toBe('2025-01-15');
     expect(payload.games[1]!.date).toBe('2025-01-14');
   });
+
+  it('regression: paginates via meta.next_cursor to reach the most recent games', async () => {
+    // Simulate a team with 105 games in a season (playoff run). balldontlie
+    // returns them ascending by date, 100 per page. Before the fix, the tool
+    // only fetched page 1 and dropped the deepest playoff games.
+    // page 1: dates 2024-10-01 … 2025-04-15 (100 games)
+    // page 2: dates 2025-05-01 … 2025-06-20 (5 games — the Finals)
+    const page1 = Array.from({ length: 100 }, (_, i) => {
+      const day = String((i % 28) + 1).padStart(2, '0');
+      const month = String(((i / 28) | 0) + 10).padStart(2, '0');
+      return makeGame(`2024-${month}-${day}`, 100 + i, 90 + i);
+    });
+    const page2 = [
+      makeGame('2025-06-20', 110, 108),
+      makeGame('2025-06-15', 108, 105),
+      makeGame('2025-06-10', 115, 102),
+      makeGame('2025-06-05', 98, 110),
+      makeGame('2025-05-30', 115, 100),
+    ];
+
+    let calls = 0;
+    const client = makeClient((url) => {
+      if (!url.includes('/games')) return undefined;
+      calls += 1;
+      if (url.includes('cursor=')) {
+        return { body: { data: page2, meta: {} } };
+      }
+      return { body: { data: page1, meta: { next_cursor: 42 } } };
+    });
+
+    const result = await getTeamGames(client).handler({ team_id: 2, season: 2024, last_n: 3 });
+    const payload = parseText(result) as {
+      totalFetched: number;
+      games: Array<{ date: string }>;
+    };
+    expect(calls).toBe(2); // paginated
+    expect(payload.totalFetched).toBe(105);
+    // The 3 most recent games must come from page 2 (the actual latest ones).
+    expect(payload.games.map((g) => g.date)).toEqual(['2025-06-20', '2025-06-15', '2025-06-10']);
+  });
 });

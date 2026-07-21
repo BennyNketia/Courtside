@@ -47,14 +47,37 @@ export function getTeamGames(client: NbaClient): ToolDefinition<typeof inputSche
       const isCurrent = season >= new Date().getFullYear() - 1;
       const ttl = isCurrent ? 30_000 : 60 * 60 * 1000;
 
-      const result = await client.balldontlie<BdlGamesResponse>(
-        '/games',
-        { 'team_ids[]': team_id, 'seasons[]': season, per_page: 100 },
-        ttl,
-      );
-      if (!result.ok) return errorResult(result.error);
+      // balldontlie /games returns 100 per page in ascending date order.
+      // A team with a deep playoff run can play >100 games in one season
+      // (82 regular + up to 28 postseason), so we MUST follow next_cursor
+      // to reach the final games — otherwise "last_n" silently truncates
+      // the actual most recent games.
+      const all: BdlGame[] = [];
+      let cursor: number | undefined;
+      let pages = 0;
+      const MAX_PAGES = 3; // 300 games caps a season safely (worst real case: 110ish).
 
-      const rows = (result.data.data ?? [])
+      for (;;) {
+        const params: Record<string, unknown> = {
+          'team_ids[]': team_id,
+          'seasons[]': season,
+          per_page: 100,
+        };
+        if (cursor !== undefined) params.cursor = cursor;
+
+        const result = await client.balldontlie<BdlGamesResponse>('/games', params, ttl);
+        if (!result.ok) return errorResult(result.error);
+
+        const page = result.data.data ?? [];
+        all.push(...page);
+        pages += 1;
+
+        const next = result.data.meta?.next_cursor;
+        if (next === undefined || next === null || pages >= MAX_PAGES || page.length === 0) break;
+        cursor = next;
+      }
+
+      const rows = all
         .slice()
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, limit)
@@ -72,7 +95,13 @@ export function getTeamGames(client: NbaClient): ToolDefinition<typeof inputSche
           },
         }));
 
-      return jsonResult({ teamId: team_id, season, count: rows.length, games: rows });
+      return jsonResult({
+        teamId: team_id,
+        season,
+        count: rows.length,
+        totalFetched: all.length,
+        games: rows,
+      });
     },
   };
 }
