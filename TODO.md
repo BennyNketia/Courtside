@@ -3,23 +3,25 @@
 Rules: phases in order; a phase is done only when its **Done =** line is true; update this file as you go. Every phase leaves the repo shippable — if you stop early, what exists still stands alone.
 
 ## Phase 0 — Repo foundation
-- [ ] Monorepo scaffold (`mcp-server/`, `runtime/`, `client/`, `eval/`, `docs/`) with root README
-- [ ] TypeScript, ESLint, Prettier, Vitest configured in each package; `.env.example` everywhere
-- [ ] GitHub Actions: lint + typecheck + test on push
-- [ ] Get free API keys: balldontlie, Google AI Studio (Gemini), Groq
+- [x] Monorepo scaffold (`mcp-server/`, `runtime/`, `client/`, `eval/`, `docs/`) with root README
+- [x] TypeScript, ESLint, Prettier, Vitest configured in each package; `.env.example` everywhere
+- [x] GitHub Actions: lint + typecheck + test on push
+- [x] Get free API keys: balldontlie ✓, Gemini (returns `limit: 0` — deferred to Sprint 2), Groq ✓
+- [x] **Data-strategy decision:** BULLETPROOF — see [ADR-0001](docs/adr/0001-data-strategy-bulletproof.md); tool mapping in [CLAUDE.md](CLAUDE.md)
 - **Done =** CI green on a hello-world test in each package.
 
-## Phase 1 — MCP server core
-- [ ] `nba-client.ts`: multi-source client (balldontlie + stats.nba.com + ESPN) with per-source headers, per-source rate limiters, TTL cache, pre-warm-on-boot, and stats.nba.com→ESPN fallback (build FIRST — every tool depends on it). **Decide first:** full strategy vs bulletproof games-and-teams-only (see SPEC).
-- [ ] Tools: `search_players` (balldontlie), `get_team` (balldontlie), `get_player_season_averages` (stats.nba.com), `get_standings` (stats.nba.com→ESPN)
+## Phase 1 — MCP server core (BULLETPROOF backing per ADR-0001 / ADR-0003)
+- [ ] `nba-client.ts`: multi-source client with per-source headers, per-source rate limiters (balldontlie ≈5 req/min, ESPN gentle), TTL cache, pre-warm-on-boot, and seed-file loader for stats data (build FIRST — every tool depends on it)
+- [ ] `scripts/refresh-seeds.ts` + first commit of `data/season-averages-{season}.json` and `data/leaders-{season}-{stat}.json` (run off-cloud from dev machine against stats.nba.com with long timeouts + backoff)
+- [ ] Tools: `search_players` (balldontlie), `get_team` (balldontlie), `get_player_season_averages` (seed JSON), `get_standings` (ESPN → seed fallback)
 - [ ] Streamable HTTP transport on Express; `/health`
 - [ ] Unit tests (mocked client) for each tool; MCP Inspector session verified
 - **Done =** Claude Desktop pointed at the server answers "what did Curry average this season?"
 
 ## Phase 2 — Remaining tools
 - [ ] `get_team_games` (balldontlie), `get_scoreboard` (ESPN)
-- [ ] `compare_players` (composite, stats.nba.com), `get_league_leaders` (stats.nba.com)
-- [ ] Output compaction pass on all 8 (strip unused fields)
+- [ ] `compare_players` (composite over the seed JSON), `get_league_leaders` (seed JSON)
+- [ ] Output compaction pass on all 8 (strip unused fields); ensure seed-backed responses include `seededAt` + `source`
 - [ ] `mcp-server/README.md` documenting every tool (this package is independently open-sourceable)
 - **Done =** integration test lists 8 tools and exercises each over HTTP.
 

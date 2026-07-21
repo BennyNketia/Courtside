@@ -62,3 +62,29 @@ A phase is done when: it runs locally with documented commands, has at least smo
 ## What to optimize for
 
 When in doubt, prefer the choice that (a) stays free, (b) makes the system's reasoning more observable, or (c) makes a better story in a recruiter interview — in that order. Clever-but-opaque loses to simple-and-traceable.
+
+## Data-source strategy (Sprint 0 decision)
+
+**Chosen: BULLETPROOF.** Rationale + probe evidence in [ADR-0001](docs/adr/0001-data-strategy-bulletproof.md); the static-seed pattern behind three of the tools is in [ADR-0003](docs/adr/0003-static-seed-cache.md).
+
+The deployed MCP server calls two live sources: **balldontlie free tier** and **ESPN `site.api.espn.com`**. It **never** calls `stats.nba.com` in production. The three tools that would depend on stats.nba.com are backed by static seed JSON committed under `mcp-server/data/`, refreshed off-cloud by `mcp-server/scripts/refresh-seeds.ts` running from a dev machine.
+
+Tool → source mapping (all 8 tool names preserved):
+
+| Tool | Source | TTL / freshness |
+|---|---|---|
+| `search_players` | balldontlie `/v1/players` | 24h |
+| `get_team` | balldontlie `/v1/teams` (fallback: ESPN `/teams`) | 24h |
+| `get_team_games` | balldontlie `/v1/games` | 1h historic, 30s today |
+| `get_scoreboard` | ESPN `/scoreboard` | 30s |
+| `get_standings` | ESPN `/standings` (fallback: static seed) | 30 min |
+| `get_player_season_averages` | Static seed JSON (`data/season-averages-{season}.json`) | `seededAt` in response |
+| `compare_players` | Composite over the same seed | `seededAt` in response |
+| `get_league_leaders` | Static seed JSON (`data/leaders-{season}-{stat}.json`) | `seededAt` in response |
+
+Rules that follow from the decision:
+
+- Never add a runtime call to `stats.nba.com` from any tool handler. If you need new stat data, extend `scripts/refresh-seeds.ts` and commit the resulting JSON.
+- Every seed-backed tool response must include `seededAt` (ISO timestamp) and `source` fields so the agent can qualify claims and the eval harness can detect staleness.
+- When a request falls outside the seeded player set, return a structured error `{error: "player not in curated dataset", retryable: false, availablePlayerIds: [...]}` — never throw.
+- The LLM plan (Gemini primary → Groq fallback) is deferred: the current Gemini key returns `429 limit: 0` (project has no free-tier quota). Sprint 2 gets a fresh key; if that also fails, ADR-003 for the runtime will make Groq primary. Sprint 0 does not block on this.
