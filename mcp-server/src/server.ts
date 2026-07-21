@@ -32,8 +32,21 @@ export function buildApp(options: BuildAppOptions = {}): { app: Express; client:
 
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+
+  // Browser-origin allowlist. MCP clients are typically Node processes that
+  // don't send Origin at all — CORS only matters when a browser (e.g. an
+  // MCP Inspector web UI) hits the server. Default: no browser origin
+  // allowed. Override via MCP_ALLOWED_ORIGINS (comma-separated) to permit
+  // specific origins. Never wildcard by default — a public wildcard lets any
+  // web page drain our rate-limited free-tier upstream quota.
+  const allowedOrigins = (process.env.MCP_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   app.use(
     cors({
+      origin: allowedOrigins.length > 0 ? allowedOrigins : false,
       exposedHeaders: ['Mcp-Session-Id'],
       allowedHeaders: ['Content-Type', 'Mcp-Session-Id'],
     }),
