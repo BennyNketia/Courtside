@@ -118,13 +118,13 @@ async function writeAtomic(filePath: string, payload: unknown): Promise<void> {
   console.info(`[refresh] wrote ${filePath}`);
 }
 
-type ExistingSeed = { players?: Array<{ playerId: number; name: string; teamAbbrev: string }> };
+type SeedPlayer = { playerId: number; name: string; teamAbbrev: string };
 
-async function loadExistingPlayerMap(season: string): Promise<Map<string, { playerId: number; name: string; teamAbbrev: string }>> {
-  const map = new Map<string, { playerId: number; name: string; teamAbbrev: string }>();
+async function loadExistingPlayerMap(season: string): Promise<Map<string, SeedPlayer>> {
+  const map = new Map<string, SeedPlayer>();
   try {
     const raw = await readFile(path.join(DATA_DIR, `season-averages-${season}.json`), 'utf8');
-    const parsed = JSON.parse(raw) as ExistingSeed;
+    const parsed = JSON.parse(raw) as { players?: SeedPlayer[] };
     for (const p of parsed.players ?? []) {
       map.set(p.name.toLowerCase(), p);
     }
@@ -134,29 +134,56 @@ async function loadExistingPlayerMap(season: string): Promise<Map<string, { play
   return map;
 }
 
-async function refreshLeaders(season: string, stat: (typeof STATS_TO_REFRESH)[number]): Promise<void> {
+/**
+ * Translate a stats.nba.com row into a seed row whose `playerId` is
+ * balldontlie's canonical id (matching season-averages-{season}.json).
+ * Match key is the player name; if the name isn't in the map we drop the row
+ * and log — writing a stats.nba.com native id would poison the search →
+ * leaders → averages agent flow.
+ */
+function toBalldontlieRow(
+  stat: string,
+  rec: Record<string, string | number>,
+  playerMap: Map<string, SeedPlayer>,
+): { rank: number; playerId: number; name: string; teamAbbrev: string; value: number; gp: number } | null {
+  const name = String(rec['PLAYER'] ?? '').trim();
+  const canonical = playerMap.get(name.toLowerCase());
+  if (!canonical) {
+    console.warn(`[refresh] skipping ${name} — not in season-averages seed for this season`);
+    return null;
+  }
+  return {
+    rank: Number(rec['RANK'] ?? 0),
+    playerId: canonical.playerId,
+    name: canonical.name,
+    teamAbbrev: canonical.teamAbbrev || String(rec['TEAM'] ?? ''),
+    value: Number(rec[stat] ?? 0),
+    gp: Number(rec['GP'] ?? 0),
+  };
+}
+
+async function refreshLeaders(
+  season: string,
+  stat: (typeof STATS_TO_REFRESH)[number],
+  playerMap: Map<string, SeedPlayer>,
+): Promise<void> {
   const body = await fetchLeagueLeaders(season, stat);
   if (!body) return;
   const { headers, rowSet } = body.resultSet;
 
-  const playerIdIdx = headers.indexOf('PLAYER_ID');
-  const nameIdx = headers.indexOf('PLAYER');
-  const teamIdx = headers.indexOf('TEAM');
-  const gpIdx = headers.indexOf('GP');
-  const rankIdx = headers.indexOf('RANK');
-  const valueIdx = headers.indexOf(stat);
+  const rows = rowSet
+    .map((r) => rowToRecord(headers, r))
+    .map((rec) => toBalldontlieRow(stat, rec, playerMap))
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    // Re-sort by value desc and re-emit ranks so the leaderboard is self-consistent.
+    .sort((a, b) => (b.value !== a.value ? b.value - a.value : b.gp - a.gp))
+    .slice(0, 25)
+    .map((row, i) => ({ ...row, rank: i + 1 }));
 
-  const rows = rowSet.slice(0, 25).map((r) => {
-    const rec = rowToRecord(headers, r);
-    return {
-      rank: Number(rec['RANK'] ?? r[rankIdx] ?? 0),
-      playerId: Number(rec['PLAYER_ID'] ?? r[playerIdIdx] ?? 0),
-      name: String(rec['PLAYER'] ?? r[nameIdx] ?? ''),
-      teamAbbrev: String(rec['TEAM'] ?? r[teamIdx] ?? ''),
-      value: Number(rec[stat] ?? r[valueIdx] ?? 0),
-      gp: Number(rec['GP'] ?? r[gpIdx] ?? 0),
-    };
-  });
+  if (rows.length === 0) {
+    console.warn(`[refresh] ${stat}: no rows survived name-to-id translation; refusing to overwrite existing seed`);
+    return;
+  }
 
   await writeAtomic(path.join(DATA_DIR, `leaders-${season}-${stat.toLowerCase()}.json`), {
     season,
@@ -179,10 +206,16 @@ function parseArgs(): { season: string } {
 async function main(): Promise<void> {
   const { season } = parseArgs();
   console.info(`[refresh] starting refresh for season ${season}`);
-  await loadExistingPlayerMap(season);
+  const playerMap = await loadExistingPlayerMap(season);
+  if (playerMap.size === 0) {
+    console.error(
+      `[refresh] fatal: no season-averages-${season}.json to translate stats.nba.com ids against. Hand-curate the season-averages seed first, then rerun this script.`,
+    );
+    process.exit(1);
+  }
 
   for (const stat of STATS_TO_REFRESH) {
-    await refreshLeaders(season, stat);
+    await refreshLeaders(season, stat, playerMap);
     // gentle pacing to avoid stats.nba.com throttling
     await new Promise((r) => setTimeout(r, 3_000));
   }
