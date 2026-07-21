@@ -42,7 +42,27 @@ describe('get_standings', () => {
     );
   });
 
-  it('returns isError when the seed for a historic season is missing', async () => {
+  it('prefers the committed seed over ESPN for the season it exists — never mislabels', async () => {
+    // Regression for the "±1 window" bug: ESPN /standings has no season
+    // selector, so querying for a historic season and getting ESPN's current
+    // dump back would mislabel it. Seed-first prevents that.
+    const espnCalled: string[] = [];
+    const client = makeClient((url) => {
+      if (url.includes('site.api.espn.com') && url.includes('/standings')) {
+        espnCalled.push(url);
+        return { body: ESPN_STANDINGS };
+      }
+      return undefined;
+    });
+    const result = await getStandings(client).handler({ season: 2024 });
+    const payload = parseText(result) as { source: string; seededAt: string; season: number };
+    expect(payload.source).toBe('seed');
+    expect(payload.seededAt).toBeTruthy();
+    expect(payload.season).toBe(2024);
+    expect(espnCalled).toEqual([]); // ESPN never called for a seeded season
+  });
+
+  it('returns isError when both the seed and ESPN yield nothing', async () => {
     const client = makeClient(() => undefined, { dataDir: '/no/such/dir' });
     const result = await getStandings(client).handler({ season: 1999 });
     expect(result.isError).toBe(true);

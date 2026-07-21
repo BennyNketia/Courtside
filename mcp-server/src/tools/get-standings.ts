@@ -52,10 +52,36 @@ export function getStandings(client: NbaClient): ToolDefinition<typeof inputSche
       'NBA conference standings: wins, losses, win%, games back, streak — grouped by conference. Live source: ESPN. Historic seasons fall back to a committed seed snapshot (response includes `seededAt` when that path is used).',
     inputSchema,
     handler: async ({ season }) => {
+      // ESPN /standings has no season selector — it always returns whatever
+      // standings ESPN currently publishes. So the ESPN path is only valid
+      // for the season ESPN is CURRENTLY publishing. Any other requested
+      // season must come from a committed seed, or the tool would silently
+      // mislabel current data with the requested season year.
+      //
+      // "Currently publishing" heuristic:
+      //   - During the regular season (Oct-Jun), ESPN publishes the live
+      //     current season → currentSeason = year - (month < 8 ? 1 : 0).
+      //   - During July/Aug (offseason), ESPN's /standings still returns the
+      //     just-finished season's final table, so ESPN's currentSeason ==
+      //     the same computed value.
       const currentSeason = new Date().getFullYear() - (new Date().getMonth() < 8 ? 1 : 0);
-      const isCurrent = season === currentSeason;
+      const seasonSlug = `${season}-${String((season + 1) % 100).padStart(2, '0')}`;
 
-      if (isCurrent) {
+      // Try the seed first — it is authoritative for any season we've curated.
+      const seed = await client.seed<StandingsSeed>(`standings-${seasonSlug}.json`);
+      if (seed.ok) {
+        return jsonResult({
+          season,
+          source: 'seed',
+          seededAt: seed.data.seededAt,
+          count: seed.data.standings.length,
+          standings: seed.data.standings,
+        });
+      }
+
+      // Only hit ESPN when the caller is asking for the season ESPN is
+      // actually publishing right now.
+      if (season === currentSeason) {
         const espn = await client.espn<EspnStandingsResponse>(
           '/standings',
           undefined,
@@ -76,28 +102,25 @@ export function getStandings(client: NbaClient): ToolDefinition<typeof inputSche
               streak: statDisplay(entry, 'streak'),
             })),
           );
-          return jsonResult({
-            season,
-            source: 'espn',
-            count: entries.length,
-            standings: entries,
-          });
+          if (entries.length > 0) {
+            return jsonResult({
+              season,
+              source: 'espn',
+              count: entries.length,
+              standings: entries,
+            });
+          }
         }
       }
 
-      const seasonSlug = `${season}-${String((season + 1) % 100).padStart(2, '0')}`;
-      const seed = await client.seed<StandingsSeed>(`standings-${seasonSlug}.json`);
-      if (seed.ok) {
-        return jsonResult({
-          season,
-          source: 'seed',
-          seededAt: seed.data.seededAt,
-          count: seed.data.standings.length,
-          standings: seed.data.standings,
-        });
-      }
-
-      return errorResult(seed.error);
+      return errorResult({
+        error:
+          season === currentSeason
+            ? `standings unavailable: ESPN returned no entries and no seed at standings-${seasonSlug}.json`
+            : `standings unavailable for season ${season}: no seed at standings-${seasonSlug}.json (ESPN can only serve the current season, which is ${currentSeason})`,
+        retryable: false,
+        source: 'seed',
+      });
     },
   };
 }
