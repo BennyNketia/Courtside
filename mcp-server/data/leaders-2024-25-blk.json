@@ -4,25 +4,165 @@
   "seededAt": "2026-07-20T00:00:00Z",
   "source": "stats.nba.com",
   "leaders": [
-    { "rank": 1,  "playerId": 56677822, "name": "Victor Wembanyama",       "teamAbbrev": "SAS", "value": 3.8, "gp": 46 },
-    { "rank": 2,  "playerId": 117,      "name": "Anthony Davis",           "teamAbbrev": "DAL", "value": 2.2, "gp": 51 },
-    { "rank": 3,  "playerId": 38017685, "name": "Chet Holmgren",           "teamAbbrev": "OKC", "value": 2.2, "gp": 32 },
-    { "rank": 4,  "playerId": 140,      "name": "Kevin Durant",            "teamAbbrev": "PHX", "value": 1.2, "gp": 62 },
-    { "rank": 5,  "playerId": 15,       "name": "Giannis Antetokounmpo",   "teamAbbrev": "MIL", "value": 1.2, "gp": 67 },
-    { "rank": 6,  "playerId": 145,      "name": "Joel Embiid",             "teamAbbrev": "PHI", "value": 1.1, "gp": 19 },
-    { "rank": 7,  "playerId": 175,      "name": "Shai Gilgeous-Alexander", "teamAbbrev": "OKC", "value": 1.0, "gp": 76 },
-    { "rank": 8,  "playerId": 274,      "name": "Kawhi Leonard",           "teamAbbrev": "LAC", "value": 0.8, "gp": 37 },
-    { "rank": 9,  "playerId": 3547245,  "name": "Tyrese Haliburton",       "teamAbbrev": "IND", "value": 0.7, "gp": 73 },
-    { "rank": 10, "playerId": 192,      "name": "James Harden",            "teamAbbrev": "LAC", "value": 0.7, "gp": 79 },
-    { "rank": 11, "playerId": 237,      "name": "LeBron James",            "teamAbbrev": "LAL", "value": 0.6, "gp": 70 },
-    { "rank": 12, "playerId": 142,      "name": "Anthony Edwards",         "teamAbbrev": "MIN", "value": 0.6, "gp": 79 },
-    { "rank": 13, "playerId": 79,       "name": "Jimmy Butler",            "teamAbbrev": "GSW", "value": 0.6, "gp": 55 },
-    { "rank": 14, "playerId": 246,      "name": "Nikola Jokic",            "teamAbbrev": "DEN", "value": 0.6, "gp": 70 },
-    { "rank": 15, "playerId": 228,      "name": "Kyrie Irving",            "teamAbbrev": "DAL", "value": 0.6, "gp": 50 },
-    { "rank": 16, "playerId": 38017683, "name": "Paolo Banchero",          "teamAbbrev": "ORL", "value": 0.6, "gp": 46 },
-    { "rank": 17, "playerId": 434,      "name": "Jayson Tatum",            "teamAbbrev": "BOS", "value": 0.5, "gp": 72 },
-    { "rank": 18, "playerId": 132,      "name": "Luka Doncic",             "teamAbbrev": "LAL", "value": 0.5, "gp": 50 },
-    { "rank": 19, "playerId": 70,       "name": "Jaylen Brown",            "teamAbbrev": "BOS", "value": 0.4, "gp": 63 },
-    { "rank": 20, "playerId": 115,      "name": "Stephen Curry",           "teamAbbrev": "GSW", "value": 0.4, "gp": 70 }
+    {
+      "rank": 1,
+      "playerId": 56677822,
+      "name": "Victor Wembanyama",
+      "teamAbbrev": "SAS",
+      "value": 3.8,
+      "gp": 46
+    },
+    {
+      "rank": 2,
+      "playerId": 117,
+      "name": "Anthony Davis",
+      "teamAbbrev": "DAL",
+      "value": 2.2,
+      "gp": 51
+    },
+    {
+      "rank": 3,
+      "playerId": 38017685,
+      "name": "Chet Holmgren",
+      "teamAbbrev": "OKC",
+      "value": 2.2,
+      "gp": 32
+    },
+    {
+      "rank": 4,
+      "playerId": 15,
+      "name": "Giannis Antetokounmpo",
+      "teamAbbrev": "MIL",
+      "value": 1.2,
+      "gp": 67
+    },
+    {
+      "rank": 5,
+      "playerId": 140,
+      "name": "Kevin Durant",
+      "teamAbbrev": "PHX",
+      "value": 1.2,
+      "gp": 62
+    },
+    {
+      "rank": 6,
+      "playerId": 145,
+      "name": "Joel Embiid",
+      "teamAbbrev": "PHI",
+      "value": 1.1,
+      "gp": 19
+    },
+    {
+      "rank": 7,
+      "playerId": 175,
+      "name": "Shai Gilgeous-Alexander",
+      "teamAbbrev": "OKC",
+      "value": 1.0,
+      "gp": 76
+    },
+    {
+      "rank": 8,
+      "playerId": 274,
+      "name": "Kawhi Leonard",
+      "teamAbbrev": "LAC",
+      "value": 0.8,
+      "gp": 37
+    },
+    {
+      "rank": 9,
+      "playerId": 192,
+      "name": "James Harden",
+      "teamAbbrev": "LAC",
+      "value": 0.7,
+      "gp": 79
+    },
+    {
+      "rank": 10,
+      "playerId": 3547245,
+      "name": "Tyrese Haliburton",
+      "teamAbbrev": "IND",
+      "value": 0.7,
+      "gp": 73
+    },
+    {
+      "rank": 11,
+      "playerId": 142,
+      "name": "Anthony Edwards",
+      "teamAbbrev": "MIN",
+      "value": 0.6,
+      "gp": 79
+    },
+    {
+      "rank": 12,
+      "playerId": 237,
+      "name": "LeBron James",
+      "teamAbbrev": "LAL",
+      "value": 0.6,
+      "gp": 70
+    },
+    {
+      "rank": 13,
+      "playerId": 246,
+      "name": "Nikola Jokic",
+      "teamAbbrev": "DEN",
+      "value": 0.6,
+      "gp": 70
+    },
+    {
+      "rank": 14,
+      "playerId": 79,
+      "name": "Jimmy Butler",
+      "teamAbbrev": "GSW",
+      "value": 0.6,
+      "gp": 55
+    },
+    {
+      "rank": 15,
+      "playerId": 228,
+      "name": "Kyrie Irving",
+      "teamAbbrev": "DAL",
+      "value": 0.6,
+      "gp": 50
+    },
+    {
+      "rank": 16,
+      "playerId": 38017683,
+      "name": "Paolo Banchero",
+      "teamAbbrev": "ORL",
+      "value": 0.6,
+      "gp": 46
+    },
+    {
+      "rank": 17,
+      "playerId": 434,
+      "name": "Jayson Tatum",
+      "teamAbbrev": "BOS",
+      "value": 0.5,
+      "gp": 72
+    },
+    {
+      "rank": 18,
+      "playerId": 132,
+      "name": "Luka Doncic",
+      "teamAbbrev": "LAL",
+      "value": 0.5,
+      "gp": 50
+    },
+    {
+      "rank": 19,
+      "playerId": 115,
+      "name": "Stephen Curry",
+      "teamAbbrev": "GSW",
+      "value": 0.4,
+      "gp": 70
+    },
+    {
+      "rank": 20,
+      "playerId": 70,
+      "name": "Jaylen Brown",
+      "teamAbbrev": "BOS",
+      "value": 0.4,
+      "gp": 63
+    }
   ]
 }

@@ -35,8 +35,16 @@ export function getLeagueLeaders(client: NbaClient): ToolDefinition<typeof input
       const seed = await client.seed<LeagueLeadersSeed>(`leaders-${slug}-${stat}.json`);
       if (!seed.ok) return errorResult(seed.error);
 
-      const rows = (seed.data.leaders ?? []).slice(0, cap).map((row) => ({
-        rank: row.rank,
+      // Defensive: sort by value desc (with gp desc as a stable tiebreaker)
+      // and re-emit ranks so a caller with `limit: N` always gets the true
+      // top-N by value. This makes the tool robust against seeds whose file
+      // order is out of sync with the value column (which has happened).
+      const sorted = [...(seed.data.leaders ?? [])].sort((a, b) => {
+        if (b.value !== a.value) return b.value - a.value;
+        return (b.gp ?? 0) - (a.gp ?? 0);
+      });
+      const rows = sorted.slice(0, cap).map((row, i) => ({
+        rank: i + 1,
         playerId: row.playerId,
         name: row.name,
         teamAbbrev: row.teamAbbrev,
