@@ -249,74 +249,90 @@ export class NbaClient {
     this.callStats[source].calls += 1;
 
     const attempt = async (n: number): Promise<Result<T>> => {
-      let response: Response;
+      // ONE AbortController per attempt: covers the header exchange AND the
+      // body stream read. If we cleared the timer as soon as `fetch` resolved,
+      // a chunked upstream that sends headers then stalls mid-body would hang
+      // `response.json()` forever. Instead we clear the timer only in the
+      // finally block after body parsing (or an error) completes.
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new Error('request timeout')),
+        15_000,
+      );
+
       try {
-        response = await this.limiters[source].schedule(() =>
-          this.doFetch(url, { headers, method: 'GET' }, 15_000),
-        );
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        const retryable = /abort|timeout|network|fetch failed/i.test(message);
-        if (retryable && n < 3) {
-          await this.sleep(jitter(400 * 2 ** n));
-          return attempt(n + 1);
+        let response: Response;
+        try {
+          response = await this.limiters[source].schedule(() =>
+            this.fetch(url, { method: 'GET', headers, signal: controller.signal }),
+          );
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          const retryable = /abort|timeout|network|fetch failed/i.test(message);
+          if (retryable && n < 3) {
+            await this.sleep(jitter(400 * 2 ** n));
+            return attempt(n + 1);
+          }
+          this.callStats[source].failures += 1;
+          return err({ error: `network error: ${message}`, retryable: true, source });
         }
-        this.callStats[source].failures += 1;
-        return err({ error: `network error: ${message}`, retryable: true, source });
-      }
 
-      const status = response.status;
-      if (status >= 500 || status === 429) {
-        if (n < 3) {
-          const retryAfterHeader = response.headers.get('retry-after');
-          const retryAfterMs = retryAfterHeader
-            ? Number.parseInt(retryAfterHeader, 10) * 1000
-            : jitter(500 * 2 ** n);
-          await this.sleep(Number.isFinite(retryAfterMs) ? retryAfterMs : jitter(500 * 2 ** n));
-          return attempt(n + 1);
+        const status = response.status;
+        if (status >= 500 || status === 429) {
+          if (n < 3) {
+            const retryAfterHeader = response.headers.get('retry-after');
+            const retryAfterMs = retryAfterHeader
+              ? Number.parseInt(retryAfterHeader, 10) * 1000
+              : jitter(500 * 2 ** n);
+            await this.sleep(Number.isFinite(retryAfterMs) ? retryAfterMs : jitter(500 * 2 ** n));
+            return attempt(n + 1);
+          }
+          this.callStats[source].failures += 1;
+          return err({
+            error: `upstream ${source} returned ${status}`,
+            retryable: true,
+            status,
+            source,
+          });
         }
-        this.callStats[source].failures += 1;
-        return err({
-          error: `upstream ${source} returned ${status}`,
-          retryable: true,
-          status,
-          source,
-        });
-      }
-      if (status >= 400) {
-        this.callStats[source].failures += 1;
-        return err({
-          error: `upstream ${source} returned ${status}`,
-          retryable: false,
-          status,
-          source,
-        });
-      }
+        if (status >= 400) {
+          this.callStats[source].failures += 1;
+          return err({
+            error: `upstream ${source} returned ${status}`,
+            retryable: false,
+            status,
+            source,
+          });
+        }
 
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch (e) {
-        this.callStats[source].failures += 1;
-        const message = e instanceof Error ? e.message : String(e);
-        return err({ error: `invalid JSON from ${source}: ${message}`, retryable: false, source });
-      }
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          const isTimeout = /abort|timeout/i.test(message);
+          if (isTimeout && n < 3) {
+            await this.sleep(jitter(400 * 2 ** n));
+            return attempt(n + 1);
+          }
+          this.callStats[source].failures += 1;
+          return err({
+            error: isTimeout
+              ? `${source} body-read timeout: ${message}`
+              : `invalid JSON from ${source}: ${message}`,
+            retryable: isTimeout,
+            source,
+          });
+        }
 
-      this.cache.set<T>(cacheKey, body as T, ttlMs);
-      return ok(body as T);
+        this.cache.set<T>(cacheKey, body as T, ttlMs);
+        return ok(body as T);
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     return attempt(0);
-  }
-
-  private async doFetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error('request timeout')), timeoutMs);
-    try {
-      return await this.fetch(url, { ...init, signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
   }
 
   /**

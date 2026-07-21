@@ -68,4 +68,31 @@ describe('NbaClient', () => {
       expect(result.error.source).toBe('seed');
     }
   });
+
+  it('regression: body-read rejection surfaces as a retryable structured error', async () => {
+    // Under the buggy version, if headers came back OK but response.json()
+    // rejected with an AbortError (body-phase abort), fetchJson still had
+    // the error propagate — but only the initial fetch was covered by the
+    // timeout. This test now confirms the body-read catch classifies abort
+    // messages as retryable and returns a Result rather than throwing.
+    const fakeFetch: typeof fetch = async () => {
+      return {
+        status: 200,
+        headers: new Headers(),
+        json: () => Promise.reject(new Error('AbortError: body timed out')),
+      } as unknown as Response;
+    };
+    const client = new NbaClient({
+      fetch: fakeFetch as typeof globalThis.fetch,
+      balldontlieApiKey: 'test',
+      sleep: () => Promise.resolve(),
+    });
+    const result = await client.balldontlie('/teams', undefined, 60_000);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.retryable).toBe(true);
+      expect(result.error.source).toBe('balldontlie');
+      expect(result.error.error).toMatch(/body-read timeout|AbortError|timed out/i);
+    }
+  });
 });
