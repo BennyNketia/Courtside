@@ -1,0 +1,18 @@
+.env
+.env.local
+.env.*.local
+
+node_modules
+dist
+build
+coverage
+.vite
+.turbo
+*.tsbuildinfo
+
+# Local DBs (Prisma SQLite dev)
+*.db
+*.db-journal
+
+.DS_Store
+*.log
