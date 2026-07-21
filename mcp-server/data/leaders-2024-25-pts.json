@@ -1,0 +1,28 @@
+{
+  "season": "2024-25",
+  "stat": "pts",
+  "seededAt": "2026-07-20T00:00:00Z",
+  "source": "stats.nba.com",
+  "leaders": [
+    { "rank": 1,  "playerId": 175,      "name": "Shai Gilgeous-Alexander", "teamAbbrev": "OKC", "value": 32.7, "gp": 76 },
+    { "rank": 2,  "playerId": 15,       "name": "Giannis Antetokounmpo",   "teamAbbrev": "MIL", "value": 30.4, "gp": 67 },
+    { "rank": 3,  "playerId": 246,      "name": "Nikola Jokic",            "teamAbbrev": "DEN", "value": 29.6, "gp": 70 },
+    { "rank": 4,  "playerId": 132,      "name": "Luka Doncic",             "teamAbbrev": "LAL", "value": 28.2, "gp": 50 },
+    { "rank": 5,  "playerId": 142,      "name": "Anthony Edwards",         "teamAbbrev": "MIN", "value": 27.6, "gp": 79 },
+    { "rank": 6,  "playerId": 434,      "name": "Jayson Tatum",            "teamAbbrev": "BOS", "value": 26.8, "gp": 72 },
+    { "rank": 7,  "playerId": 140,      "name": "Kevin Durant",            "teamAbbrev": "PHX", "value": 26.6, "gp": 62 },
+    { "rank": 8,  "playerId": 73,       "name": "Jalen Brunson",           "teamAbbrev": "NYK", "value": 26.0, "gp": 65 },
+    { "rank": 9,  "playerId": 38017683, "name": "Paolo Banchero",          "teamAbbrev": "ORL", "value": 25.9, "gp": 46 },
+    { "rank": 10, "playerId": 57,       "name": "Devin Booker",            "teamAbbrev": "PHX", "value": 25.6, "gp": 75 },
+    { "rank": 11, "playerId": 228,      "name": "Kyrie Irving",            "teamAbbrev": "DAL", "value": 24.7, "gp": 50 },
+    { "rank": 12, "playerId": 117,      "name": "Anthony Davis",           "teamAbbrev": "DAL", "value": 24.7, "gp": 51 },
+    { "rank": 13, "playerId": 115,      "name": "Stephen Curry",           "teamAbbrev": "GSW", "value": 24.5, "gp": 70 },
+    { "rank": 14, "playerId": 237,      "name": "LeBron James",            "teamAbbrev": "LAL", "value": 24.4, "gp": 70 },
+    { "rank": 15, "playerId": 56677822, "name": "Victor Wembanyama",       "teamAbbrev": "SAS", "value": 24.3, "gp": 46 },
+    { "rank": 16, "playerId": 490,      "name": "Trae Young",              "teamAbbrev": "ATL", "value": 24.2, "gp": 76 },
+    { "rank": 17, "playerId": 322,      "name": "Donovan Mitchell",        "teamAbbrev": "CLE", "value": 24.0, "gp": 71 },
+    { "rank": 18, "playerId": 145,      "name": "Joel Embiid",             "teamAbbrev": "PHI", "value": 23.8, "gp": 19 },
+    { "rank": 19, "playerId": 666786,   "name": "Ja Morant",               "teamAbbrev": "MEM", "value": 23.2, "gp": 50 },
+    { "rank": 20, "playerId": 192,      "name": "James Harden",            "teamAbbrev": "LAC", "value": 22.8, "gp": 79 }
+  ]
+}

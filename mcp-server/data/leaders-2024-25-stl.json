@@ -1,0 +1,28 @@
+{
+  "season": "2024-25",
+  "stat": "stl",
+  "seededAt": "2026-07-20T00:00:00Z",
+  "source": "stats.nba.com",
+  "leaders": [
+    { "rank": 1,  "playerId": 172,      "name": "Paul George",             "teamAbbrev": "PHI", "value": 1.9, "gp": 41 },
+    { "rank": 2,  "playerId": 132,      "name": "Luka Doncic",             "teamAbbrev": "LAL", "value": 1.8, "gp": 50 },
+    { "rank": 3,  "playerId": 246,      "name": "Nikola Jokic",            "teamAbbrev": "DEN", "value": 1.8, "gp": 70 },
+    { "rank": 4,  "playerId": 175,      "name": "Shai Gilgeous-Alexander", "teamAbbrev": "OKC", "value": 1.7, "gp": 76 },
+    { "rank": 5,  "playerId": 274,      "name": "Kawhi Leonard",           "teamAbbrev": "LAC", "value": 1.6, "gp": 37 },
+    { "rank": 6,  "playerId": 192,      "name": "James Harden",            "teamAbbrev": "LAC", "value": 1.5, "gp": 79 },
+    { "rank": 7,  "playerId": 79,       "name": "Jimmy Butler",            "teamAbbrev": "GSW", "value": 1.5, "gp": 55 },
+    { "rank": 8,  "playerId": 3547245,  "name": "Tyrese Haliburton",       "teamAbbrev": "IND", "value": 1.4, "gp": 73 },
+    { "rank": 9,  "playerId": 322,      "name": "Donovan Mitchell",        "teamAbbrev": "CLE", "value": 1.3, "gp": 71 },
+    { "rank": 10, "playerId": 117,      "name": "Anthony Davis",           "teamAbbrev": "DAL", "value": 1.3, "gp": 51 },
+    { "rank": 11, "playerId": 228,      "name": "Kyrie Irving",            "teamAbbrev": "DAL", "value": 1.3, "gp": 50 },
+    { "rank": 12, "playerId": 142,      "name": "Anthony Edwards",         "teamAbbrev": "MIN", "value": 1.2, "gp": 79 },
+    { "rank": 13, "playerId": 666786,   "name": "Ja Morant",               "teamAbbrev": "MEM", "value": 1.2, "gp": 50 },
+    { "rank": 14, "playerId": 70,       "name": "Jaylen Brown",            "teamAbbrev": "BOS", "value": 1.2, "gp": 63 },
+    { "rank": 15, "playerId": 490,      "name": "Trae Young",              "teamAbbrev": "ATL", "value": 1.2, "gp": 76 },
+    { "rank": 16, "playerId": 115,      "name": "Stephen Curry",           "teamAbbrev": "GSW", "value": 1.1, "gp": 70 },
+    { "rank": 17, "playerId": 434,      "name": "Jayson Tatum",            "teamAbbrev": "BOS", "value": 1.1, "gp": 72 },
+    { "rank": 18, "playerId": 56677822, "name": "Victor Wembanyama",       "teamAbbrev": "SAS", "value": 1.1, "gp": 46 },
+    { "rank": 19, "playerId": 38017683, "name": "Paolo Banchero",          "teamAbbrev": "ORL", "value": 1.1, "gp": 46 },
+    { "rank": 20, "playerId": 237,      "name": "LeBron James",            "teamAbbrev": "LAL", "value": 1.0, "gp": 70 }
+  ]
+}
