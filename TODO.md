@@ -22,12 +22,12 @@ Rules: phases in order; a phase is done only when its **Done =** line is true; u
 ## Phase 2 — (folded into Phase 1) — all 8 tools shipped together
 
 ## Phase 3 — Runtime: agent + streaming
-- [ ] Model provider: Gemini primary, Groq fallback, per-call token recording
-- [ ] `MultiServerMCPClient` config-driven MCP connection; `createReactAgent` with iteration cap + timeout
-- [ ] Trace capture wired around the agent (persist even on failure)
-- [ ] `POST /agent/run` with typed SSE events; zod validation; CORS; per-IP rate limit
-- [ ] Prisma schema (`jobs`, `runs`, `steps`) on SQLite
-- **Done =** `curl -N` shows a live run; killing the MCP server mid-run yields status `error` + stored partial trace, service survives.
+- [x] Model provider: Gemini primary, Groq fallback, per-call token recording — see [ADR-0004](docs/adr/0004-runtime-agent-runtime.md)
+- [x] `MultiServerMCPClient` config-driven MCP connection; `createReactAgent` with iteration cap (8) + 60s timeout; Gemini tool-schema sanitizer for cross-provider compatibility
+- [x] Trace capture wired around the agent (persists on success AND failure — MCP-down mid-run test verified)
+- [x] `POST /agent/run` with typed SSE events (`token`/`tool_call`/`tool_result`/`error`/`done`); zod validation; CORS locked to client origin; per-IP rate limit on `/agent/run`
+- [x] Prisma schema (`Job`, `Run`, `Step`) on SQLite; initial migration committed
+- **Done =** ✓ live boot verified: `curl -N http://localhost:3002/agent/run` streams typed events end-to-end; MCP killed mid-run → runtime survives, partial trace persisted with the model's honest "cannot retrieve" answer; MCP down before run → `mcp_unavailable` error event + `done`, trace persisted, service continues serving other traffic.
 
 ## Phase 4 — Runtime: jobs + history
 - [ ] `POST /agent/schedule`, `GET /jobs`, `DELETE /jobs/:id` (node-cron, jobs reloaded on boot)

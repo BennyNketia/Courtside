@@ -1,0 +1,66 @@
+// Courtside runtime — persistence for jobs, runs, and steps.
+// SQLite for dev; the identical schema targets Neon Postgres in prod
+// (change provider to `postgresql` and DATABASE_URL — see ADR-005).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A scheduled prompt. Not used by Sprint 2 yet — the table ships now so the
+// Sprint 3 scheduling code drops in without a migration.
+model Job {
+  id        String   @id @default(cuid())
+  prompt    String
+  cron      String
+  createdAt DateTime @default(now())
+  active    Boolean  @default(true)
+
+  runs Run[]
+}
+
+// One agent invocation, ad-hoc or scheduled. Persists on success AND failure —
+// killing the MCP server mid-run must still leave a queryable trace.
+model Run {
+  id         String   @id @default(cuid())
+  jobId      String?
+  question   String
+  status     String
+  model      String?
+  tokensIn   Int      @default(0)
+  tokensOut  Int      @default(0)
+  latencyMs  Int      @default(0)
+  answer     String?
+  error      String?
+  createdAt  DateTime @default(now())
+  finishedAt DateTime?
+
+  job   Job?   @relation(fields: [jobId], references: [id])
+  steps Step[]
+
+  @@index([createdAt])
+  @@index([jobId])
+}
+
+// One step of the ReAct loop: a model turn, a tool call, or a tool result.
+// idx orders them within a run; args/result are JSON blobs (SQLite text).
+model Step {
+  id        String   @id @default(cuid())
+  runId     String
+  idx       Int
+  type      String
+  name      String?
+  argsJson  String?
+  resultJson String?
+  latencyMs Int      @default(0)
+  createdAt DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, idx])
+}
