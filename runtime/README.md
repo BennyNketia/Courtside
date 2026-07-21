@@ -4,16 +4,22 @@ Express service that connects to the MCP server, runs a LangGraph ReAct agent
 over the discovered tools, streams typed SSE events to the client, and
 persists every run trace (success or failure) via Prisma.
 
-## Endpoints (Sprint 2)
+## Endpoints
 
 | Route | Description |
 |---|---|
 | `POST /agent/run` | Body `{ question: string }`. Streams typed SSE events (`token`, `tool_call`, `tool_result`, `error`, `done`). |
-| `GET /health` | Liveness — reports the configured MCP URL. |
+| `POST /agent/schedule` | Body `{ prompt, cron }` → validated, persisted, registered with node-cron. Returns the created Job. |
+| `GET /jobs` | Active jobs, newest first. |
+| `DELETE /jobs/:id` | Unregister + hard-delete the row (linked runs keep their history — `jobId` is set to `NULL`). |
+| `GET /runs?limit&cursor` | Paginated run summaries (base64url cursor over `createdAt, id`, newest first). |
+| `GET /runs/:id` | Full trace: run + steps (args/result JSON parsed back on the way out). |
+| `GET /health` | Liveness — reports MCP URL, configured models, active job count. |
 
-Scheduling (`/agent/schedule`, `/jobs`), history (`/runs`), and the client
-land in later sprints — the DB schema for them ships now so migrations don't
-churn.
+Scheduler bootstrap: on process start the runtime loads every active `Job`
+row into node-cron so a restart re-arms every schedule without user
+action. Job fires call the same `runOnce` used by `/agent/run` — the
+resulting trace persists with `jobId` linked to the Job.
 
 ## Quickstart (local, two terminals)
 
@@ -36,6 +42,24 @@ The single command that shows the whole system working:
 curl -N -X POST http://localhost:3002/agent/run \
   -H 'content-type: application/json' \
   -d '{"question":"What team does Stephen Curry play for?"}'
+```
+
+Schedule + history demo (Sprint 3):
+
+```bash
+# Create an every-minute test digest.
+curl -X POST http://localhost:3002/agent/schedule \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"Any close games tonight?","cron":"* * * * *"}'
+
+# List scheduled jobs.
+curl http://localhost:3002/jobs
+
+# Wait ~65s, then look at recent runs.
+curl 'http://localhost:3002/runs?limit=5'
+
+# Drill into the latest one.
+curl http://localhost:3002/runs/<runId>
 ```
 
 You'll see typed SSE events stream in order:

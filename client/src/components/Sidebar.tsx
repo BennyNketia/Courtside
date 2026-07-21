@@ -1,6 +1,7 @@
 import { CSSProperties, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { colors, fonts, motion, radii } from '../theme';
+import { useHealth } from '../lib/useHealth';
 import { HealthDot } from './HealthDot';
 
 const sidebarStyle: CSSProperties = {
@@ -94,6 +95,7 @@ function NavItem({ to, icon, label, end }: NavItemProps) {
 }
 
 export function Sidebar() {
+  const { healthy, model } = useHealth();
   return (
     <aside style={sidebarStyle}>
       <div style={brandStyle}>
@@ -107,8 +109,8 @@ export function Sidebar() {
         <NavItem to="/dashboard" icon="▤" label="Dashboard" />
       </nav>
       <div style={footerStyle}>
-        <HealthDot healthy />
-        <span>gemini-flash</span>
+        <HealthDot healthy={healthy} />
+        <span>{model ?? 'offline'}</span>
       </div>
     </aside>
   );

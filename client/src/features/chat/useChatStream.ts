@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatEvent } from './chatScript';
-import type { AssistantMessage, Message, MessageSegment, TextSegment, ToolSegment } from './types';
+import { streamAgent, type AgentEvent } from '../../lib/runtime';
+import type {
+  AssistantMessage,
+  Message,
+  MessageSegment,
+  TextSegment,
+  ToolSegment,
+} from './types';
 
 function appendToLastText(segments: MessageSegment[], text: string): MessageSegment[] {
   const last = segments[segments.length - 1];
@@ -15,88 +21,151 @@ function nextId(): string {
   return `m_${Math.floor(performance.now() * 1000)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export type StreamStatus = 'idle' | 'streaming' | 'error' | 'timeout' | 'completed';
+
+export type ChatError = { message: string } | null;
+
 export function useChatStream() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
-  const timeoutsRef = useRef<number[]>([]);
+  const [status, setStatus] = useState<StreamStatus>('idle');
+  const [error, setError] = useState<ChatError>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const toolStartRef = useRef<Map<string, number>>(new Map());
 
-  const clearTimers = () => {
-    timeoutsRef.current.forEach((t) => window.clearTimeout(t));
-    timeoutsRef.current = [];
-  };
+  const closeAbort = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  }, []);
 
-  useEffect(() => () => clearTimers(), []);
+  useEffect(() => () => closeAbort(), [closeAbort]);
 
   const stop = useCallback(() => {
-    clearTimers();
+    closeAbort();
     setStreaming(false);
+    setStatus((s) => (s === 'streaming' ? 'idle' : s));
     setMessages((prev) =>
-      prev.map((m) =>
-        m.role === 'assistant' && m.streaming ? { ...m, streaming: false } : m,
-      ),
+      prev.map((m) => (m.role === 'assistant' && m.streaming ? { ...m, streaming: false } : m)),
     );
-  }, []);
+  }, [closeAbort]);
 
   const reset = useCallback(() => {
-    clearTimers();
+    closeAbort();
+    toolStartRef.current.clear();
     setStreaming(false);
+    setStatus('idle');
+    setError(null);
     setMessages([]);
-  }, []);
+  }, [closeAbort]);
 
-  const send = useCallback((prompt: string, script: ChatEvent[]) => {
-    if (!prompt.trim()) return;
-    clearTimers();
+  const send = useCallback(
+    async (prompt: string): Promise<void> => {
+      const trimmed = prompt.trim();
+      if (!trimmed) return;
+      closeAbort();
 
-    const userId = nextId();
-    const assistantId = nextId();
-    const assistant: AssistantMessage = {
-      id: assistantId,
-      role: 'assistant',
-      segments: [],
-      streaming: true,
-    };
-    setMessages((prev) => [
-      ...prev,
-      { id: userId, role: 'user', text: prompt.trim() },
-      assistant,
-    ]);
-    setStreaming(true);
+      const userId = nextId();
+      const assistantId = nextId();
+      const assistant: AssistantMessage = {
+        id: assistantId,
+        role: 'assistant',
+        segments: [],
+        streaming: true,
+      };
+      setMessages((prev) => [
+        ...prev,
+        { id: userId, role: 'user', text: trimmed },
+        assistant,
+      ]);
+      setStreaming(true);
+      setStatus('streaming');
+      setError(null);
+      toolStartRef.current = new Map();
 
-    const apply = (fn: (m: AssistantMessage) => AssistantMessage) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === assistantId && m.role === 'assistant' ? fn(m) : m)),
-      );
-    };
+      const apply = (fn: (m: AssistantMessage) => AssistantMessage) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId && m.role === 'assistant' ? fn(m) : m)),
+        );
+      };
 
-    script.forEach((ev) => {
-      const handle = window.setTimeout(() => {
-        if (ev.type === 'append') {
-          apply((m) => ({ ...m, segments: appendToLastText(m.segments, ev.text) }));
-        } else if (ev.type === 'tool_start') {
-          const chip: ToolSegment = {
-            kind: 'tool',
-            toolCallId: ev.toolCallId,
-            tool: ev.tool,
-            state: 'pending',
-          };
-          apply((m) => ({ ...m, segments: [...m.segments, chip] }));
-        } else if (ev.type === 'tool_end') {
-          apply((m) => ({
-            ...m,
-            segments: m.segments.map((s) =>
-              s.kind === 'tool' && s.toolCallId === ev.toolCallId
-                ? { ...s, state: ev.failed ? 'failed' : 'done', latencyMs: ev.latencyMs }
-                : s,
-            ),
-          }));
-        } else if (ev.type === 'done') {
-          apply((m) => ({ ...m, streaming: false }));
-          setStreaming(false);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        for await (const ev of streamAgent(trimmed, { signal: controller.signal })) {
+          handleEvent(ev, apply, toolStartRef.current, setStatus, setError);
+          if (ev.type === 'done') break;
         }
-      }, ev.at);
-      timeoutsRef.current.push(handle);
-    });
-  }, []);
+      } catch (err) {
+        // AbortError from user-initiated stop is not an error we need to
+        // surface; other failures land here (network drop, DNS, CORS).
+        const message = err instanceof Error ? err.message : String(err);
+        if ((err as { name?: string })?.name !== 'AbortError') {
+          setError({ message });
+          setStatus('error');
+        }
+      } finally {
+        setStreaming(false);
+        apply((m) => ({ ...m, streaming: false }));
+        abortRef.current = null;
+      }
+    },
+    [closeAbort],
+  );
 
-  return { messages, streaming, send, stop, reset };
+  return { messages, streaming, status, error, send, stop, reset };
+}
+
+function handleEvent(
+  ev: AgentEvent,
+  apply: (fn: (m: AssistantMessage) => AssistantMessage) => void,
+  toolStart: Map<string, number>,
+  setStatus: (s: StreamStatus) => void,
+  setError: (e: ChatError) => void,
+): void {
+  if (ev.type === 'token') {
+    if (!ev.content) return;
+    apply((m) => ({ ...m, segments: appendToLastText(m.segments, ev.content) }));
+    return;
+  }
+  if (ev.type === 'tool_call') {
+    toolStart.set(ev.callId, performance.now());
+    const chip: ToolSegment = {
+      kind: 'tool',
+      toolCallId: ev.callId,
+      tool: ev.name,
+      state: 'pending',
+    };
+    apply((m) => ({ ...m, segments: [...m.segments, chip] }));
+    return;
+  }
+  if (ev.type === 'tool_result') {
+    const started = toolStart.get(ev.callId);
+    const latencyMs = started ? Math.round(performance.now() - started) : undefined;
+    toolStart.delete(ev.callId);
+    apply((m) => ({
+      ...m,
+      segments: m.segments.map((s) => {
+        if (s.kind !== 'tool' || s.toolCallId !== ev.callId) return s;
+        return {
+          ...s,
+          state: ev.ok ? 'done' : 'failed',
+          ...(latencyMs !== undefined ? { latencyMs } : {}),
+        };
+      }),
+    }));
+    return;
+  }
+  if (ev.type === 'error') {
+    setError({ message: ev.message });
+    return;
+  }
+  if (ev.type === 'done') {
+    if (ev.status === 'completed') setStatus('completed');
+    else if (ev.status === 'timeout') setStatus('timeout');
+    else setStatus('error');
+    return;
+  }
 }

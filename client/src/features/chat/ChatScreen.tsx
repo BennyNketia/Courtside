@@ -4,10 +4,15 @@ import { Textarea } from '../../components/Textarea';
 import { ToolChip } from '../../components/ToolChip';
 import { colors, fonts, motion, radii, shadows } from '../../theme';
 import { RichText } from './RichText';
-import { ASSISTS_SCRIPT, COMPARE_SCRIPT, EAST_SCRIPT, SUGGESTIONS } from './chatScript';
-import type { ChatEvent } from './chatScript';
 import { useChatStream } from './useChatStream';
 import type { AssistantMessage, Message, UserMessage } from './types';
+
+// The three canonical example prompts (DESIGN.md, "Chat" screen).
+const EXAMPLE_PROMPTS = [
+  'Compare LeBron and Curry this season',
+  'Who leads the East?',
+  'Top 5 in assists this year',
+] as const;
 
 const pageStyle: CSSProperties = {
   display: 'flex',
@@ -69,8 +74,19 @@ const sendBtnPos: CSSProperties = {
   bottom: 8,
 };
 
+const errorBannerStyle: CSSProperties = {
+  padding: '10px 12px',
+  borderRadius: radii.control,
+  background: 'rgba(235, 87, 87, 0.10)',
+  boxShadow: '0 0 0 1px rgba(235, 87, 87, 0.25)',
+  color: colors.error,
+  fontFamily: fonts.mono,
+  fontSize: 13,
+  lineHeight: 1.5,
+};
+
 export function ChatScreen() {
-  const { messages, streaming, send, stop, reset } = useChatStream();
+  const { messages, streaming, status, error, send, stop, reset } = useChatStream();
   const [value, setValue] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -80,18 +96,9 @@ export function ChatScreen() {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const scriptFor = (prompt: string): ChatEvent[] => {
-    const suggestion = SUGGESTIONS.find((s) => s.label.toLowerCase() === prompt.toLowerCase());
-    if (suggestion) return suggestion.script;
-    const lower = prompt.toLowerCase();
-    if (lower.includes('east')) return EAST_SCRIPT;
-    if (lower.includes('assist')) return ASSISTS_SCRIPT;
-    return COMPARE_SCRIPT;
-  };
-
   const submit = (text: string) => {
     if (!text.trim() || streaming) return;
-    send(text.trim(), scriptFor(text));
+    void send(text.trim());
     setValue('');
   };
 
@@ -127,7 +134,17 @@ export function ChatScreen() {
           {isEmpty ? (
             <EmptyState onPick={(label) => submit(label)} />
           ) : (
-            messages.map((m) => <MessageRow key={m.id} message={m} />)
+            <>
+              {messages.map((m) => (
+                <MessageRow key={m.id} message={m} />
+              ))}
+              {(status === 'error' || status === 'timeout' || error) && !streaming && (
+                <ErrorBanner
+                  status={status}
+                  message={error?.message ?? 'The agent hit an error mid-run.'}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -212,8 +229,8 @@ function EmptyState({ onPick }: { onPick: (label: string) => void }) {
       <h2 style={heading}>Courtside</h2>
       <p style={sub}>Ask an NBA question and watch the agent pull the numbers.</p>
       <div style={chips}>
-        {SUGGESTIONS.map((s) => (
-          <SuggestionChip key={s.label} label={s.label} onClick={() => onPick(s.label)} />
+        {EXAMPLE_PROMPTS.map((label) => (
+          <SuggestionChip key={label} label={label} onClick={() => onPick(label)} />
         ))}
       </div>
     </div>
@@ -296,10 +313,9 @@ function AssistantBlock({ message }: { message: AssistantMessage }) {
     letterSpacing: '-0.011em',
     padding: '2px 0',
   };
-  // Determine whether to show cursor: on the last text segment while streaming.
   const lastTextIdx = useMemo(() => {
     for (let i = message.segments.length - 1; i >= 0; i--) {
-      if (message.segments[i].kind === 'text') return i;
+      if (message.segments[i]?.kind === 'text') return i;
     }
     return -1;
   }, [message.segments]);
@@ -348,5 +364,21 @@ function StopGlyph() {
       aria-hidden
       style={{ width: 10, height: 10, background: colors.text1, borderRadius: 2, marginRight: 2 }}
     />
+  );
+}
+
+function ErrorBanner({
+  status,
+  message,
+}: {
+  status: 'error' | 'timeout' | string;
+  message: string;
+}) {
+  const label = status === 'timeout' ? 'Timeout' : 'Error';
+  return (
+    <div style={errorBannerStyle} role="alert" aria-live="polite">
+      <strong style={{ marginRight: 6 }}>{label}:</strong>
+      {message}
+    </div>
   );
 }

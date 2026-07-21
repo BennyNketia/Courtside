@@ -21,12 +21,8 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 
 import type { RuntimeConfig } from '../config.js';
-import { logger } from '../lib/logger.js';
 import { openSse } from '../lib/sse.js';
-import { runAgent, type AgentEvent } from '../agent/agent.js';
-import { connectMcp } from '../agent/mcp.js';
-import { buildModelProvider } from '../agent/model.js';
-import { persistRun } from '../agent/persist.js';
+import { runOnce } from '../agent/runOnce.js';
 
 export const AgentRunBodySchema = z.object({
   question: z
@@ -62,107 +58,23 @@ export function agentRunHandler(deps: AgentRunDeps) {
     // Buffer events until model/tools boot — clients still get a heartbeat.
     sse.comment(`run ${runId} starting`);
 
-    const emit = (event: Exclude<AgentEvent, { type: 'done' }>): void => {
-      sse.event(event.type, event);
-    };
-
-    let mcpConnection: Awaited<ReturnType<typeof connectMcp>> | null = null;
-    let providerRef: ReturnType<typeof buildModelProvider> | null = null;
-    let outcomeStatus: 'completed' | 'error' | 'timeout' | 'max_iterations' = 'error';
-    let modelId: string | null = null;
-    let tokensIn = 0;
-    let tokensOut = 0;
-    let latencyMs = 0;
-
-    try {
-      providerRef = buildModelProvider(deps.config);
-      try {
-        mcpConnection = await connectMcp(deps.config);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        emit({ type: 'error', message: `mcp_unavailable: ${message}` });
-        const trace = fabricateFailureTrace(question, `mcp_unavailable: ${message}`);
-        await persistRun(deps.prisma, {
-          runId,
-          trace,
-          provider: providerRef,
-        }).catch((e) => logger.error('persist_failed', { runId, message: String(e) }));
-        latencyMs = trace.latencyMs;
-        sse.event('done', {
-          runId,
-          status: 'error',
-          model: null,
-          tokensIn: 0,
-          tokensOut: 0,
-          latencyMs,
-        });
-        sse.close();
-        return;
-      }
-
-      const outcome = await runAgent({
-        question,
-        runId,
-        provider: providerRef,
-        tools: mcpConnection.tools,
-        config: deps.config,
-        emit,
-        signal: abortController.signal,
-      });
-
-      const trace = outcome.trace.snapshot(
-        providerRef.currentModelId(),
-        providerRef.usage.totals().in,
-        providerRef.usage.totals().out,
-      );
-      outcomeStatus = outcome.status;
-      modelId = trace.model;
-      tokensIn = trace.tokensIn;
-      tokensOut = trace.tokensOut;
-      latencyMs = trace.latencyMs;
-
-      await persistRun(deps.prisma, { runId, trace, provider: providerRef }).catch((e) =>
-        logger.error('persist_failed', { runId, message: String(e) }),
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error('agent_run_uncaught', { runId, message });
-      emit({ type: 'error', message });
-      if (providerRef) {
-        const trace = fabricateFailureTrace(question, message);
-        await persistRun(deps.prisma, { runId, trace, provider: providerRef }).catch(() => undefined);
-      }
-    } finally {
-      if (mcpConnection) {
-        await mcpConnection.close();
-      }
-    }
+    const summary = await runOnce({
+      runId,
+      question,
+      config: deps.config,
+      prisma: deps.prisma,
+      signal: abortController.signal,
+      onEvent: (event) => sse.event(event.type, event),
+    });
 
     sse.event('done', {
-      runId,
-      status: outcomeStatus,
-      model: modelId,
-      tokensIn,
-      tokensOut,
-      latencyMs,
+      runId: summary.runId,
+      status: summary.status,
+      model: summary.model,
+      tokensIn: summary.tokensIn,
+      tokensOut: summary.tokensOut,
+      latencyMs: summary.latencyMs,
     });
     sse.close();
-  };
-}
-
-function fabricateFailureTrace(question: string, message: string): import('../agent/trace.js').Trace {
-  const now = Date.now();
-  return {
-    question,
-    status: 'error',
-    model: null,
-    answer: null,
-    error: message,
-    tokensIn: 0,
-    tokensOut: 0,
-    latencyMs: 0,
-    startedAt: now,
-    finishedAt: now,
-    steps: [],
   };
 }

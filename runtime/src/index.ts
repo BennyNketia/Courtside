@@ -23,7 +23,17 @@ export const name = '@courtside/runtime';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const { app } = buildApp({ config });
+  const { app, scheduler } = buildApp({ config });
+
+  // Boot-time: reload every active job into node-cron. Failures here are
+  // logged but not fatal — the service must still serve /health and
+  // /agent/run even if the schedule table is empty or unreachable.
+  const loaded = await scheduler.loadFromDb().catch((err) => {
+    logger.error('scheduler_bootstrap_failed', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  });
 
   const server = app.listen(config.port, () => {
     logger.info('runtime listening', {
@@ -32,7 +42,16 @@ async function main(): Promise<void> {
       port: config.port,
       mcpUrl: config.mcp.serverUrl,
       clientOrigin: config.clientOrigin,
-      endpoints: ['POST /agent/run', 'GET /health'],
+      activeJobs: loaded,
+      endpoints: [
+        'POST /agent/run',
+        'POST /agent/schedule',
+        'GET /jobs',
+        'DELETE /jobs/:id',
+        'GET /runs',
+        'GET /runs/:id',
+        'GET /health',
+      ],
     });
   });
 
@@ -42,6 +61,7 @@ async function main(): Promise<void> {
 
   const shutdown = (signal: string): void => {
     logger.info('shutting_down', { signal });
+    scheduler.stopAll();
     server.close(async () => {
       await disconnectPrisma();
       process.exit(0);

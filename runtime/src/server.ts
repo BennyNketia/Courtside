@@ -8,21 +8,33 @@ import rateLimit from 'express-rate-limit';
 import type { PrismaClient } from '@prisma/client';
 
 import type { RuntimeConfig } from './config.js';
+import { createJobScheduler, type JobScheduler } from './jobs/scheduler.js';
 import { logger } from './lib/logger.js';
 import { prisma as sharedPrisma } from './lib/prisma.js';
 import { agentRunHandler } from './routes/agent.js';
+import { deleteJobHandler, listJobsHandler, scheduleHandler } from './routes/jobs.js';
+import { getRunHandler, listRunsHandler } from './routes/runs.js';
 
 export const PACKAGE_NAME = 'courtside-runtime';
-export const PACKAGE_VERSION = '0.1.0';
+export const PACKAGE_VERSION = '0.2.0';
 
 export type BuildAppOptions = {
   config: RuntimeConfig;
   prisma?: PrismaClient;
+  /** Optional scheduler override — tests pass a hand-rolled fake. */
+  scheduler?: JobScheduler;
 };
 
-export function buildApp(opts: BuildAppOptions): { app: Express; prisma: PrismaClient } {
+export type BuiltApp = {
+  app: Express;
+  prisma: PrismaClient;
+  scheduler: JobScheduler;
+};
+
+export function buildApp(opts: BuildAppOptions): BuiltApp {
   const app = express();
   const prisma = opts.prisma ?? sharedPrisma;
+  const scheduler = opts.scheduler ?? createJobScheduler({ config: opts.config, prisma });
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '32kb' }));
@@ -45,12 +57,24 @@ export function buildApp(opts: BuildAppOptions): { app: Express; prisma: PrismaC
   });
 
   app.get('/health', async (_req, res) => {
+    // The health surface is intentionally cheap: it doesn't attempt a live
+    // MCP handshake (that would create a socket per health check on a
+    // free-tier deploy). Instead it reports the *configured* MCP url and
+    // whether providers are configured, so a recruiter's first click sees
+    // an honest "yes I'm up and here's what I'm pointed at."
     res.json({
       status: 'ok',
       name: PACKAGE_NAME,
       version: PACKAGE_VERSION,
       time: new Date().toISOString(),
       mcpUrl: opts.config.mcp.serverUrl,
+      model: {
+        primary: opts.config.model.geminiApiKey ? opts.config.model.geminiModel : null,
+        fallback: opts.config.model.groqApiKey ? opts.config.model.groqModel : null,
+      },
+      scheduler: {
+        activeJobs: scheduler.activeJobIds().length,
+      },
     });
   });
 
@@ -61,6 +85,13 @@ export function buildApp(opts: BuildAppOptions): { app: Express; prisma: PrismaC
   app.all('/agent/run', (_req, res) => {
     res.status(405).json({ error: 'method_not_allowed', allow: ['POST'] });
   });
+
+  app.post('/agent/schedule', scheduleHandler({ prisma, scheduler }));
+  app.get('/jobs', listJobsHandler({ prisma, scheduler }));
+  app.delete('/jobs/:id', deleteJobHandler({ prisma, scheduler }));
+
+  app.get('/runs', listRunsHandler({ prisma }));
+  app.get('/runs/:id', getRunHandler({ prisma }));
 
   // Fallback JSON 404.
   app.use((_req, res) => {
@@ -81,5 +112,5 @@ export function buildApp(opts: BuildAppOptions): { app: Express; prisma: PrismaC
     },
   );
 
-  return { app, prisma };
+  return { app, prisma, scheduler };
 }

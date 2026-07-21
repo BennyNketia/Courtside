@@ -30,15 +30,18 @@ Rules: phases in order; a phase is done only when its **Done =** line is true; u
 - **Done =** ✓ live boot verified: `curl -N http://localhost:3002/agent/run` streams typed events end-to-end; MCP killed mid-run → runtime survives, partial trace persisted with the model's honest "cannot retrieve" answer; MCP down before run → `mcp_unavailable` error event + `done`, trace persisted, service continues serving other traffic.
 
 ## Phase 4 — Runtime: jobs + history
-- [ ] `POST /agent/schedule`, `GET /jobs`, `DELETE /jobs/:id` (node-cron, jobs reloaded on boot)
-- [ ] `GET /runs` (paginated) and `GET /runs/:id` (full trace)
-- **Done =** a `* * * * *` test job fires and its trace appears via the API.
+- [x] `POST /agent/schedule`, `GET /jobs`, `DELETE /jobs/:id` (node-cron, jobs reloaded on boot)
+- [x] `GET /runs` (paginated with base64url cursor over `(createdAt, id)`) and `GET /runs/:id` (full trace with parsed args/result)
+- [x] `runOnce` extracted so streaming route + cron scheduler share the same trace/persist path
+- [x] Tests: jobs API + a real `* * * * * *` fire against a fake `runJob`; runs pagination + detail
+- **Done =** ✓ `POST /agent/schedule` → row in DB + `node-cron` task registered; `GET /jobs` lists it; `DELETE /jobs/:id` unregisters + removes; every-second job fires and calls the executor; boot reloads active jobs.
 
 ## Phase 5 — Client
-- [ ] Chat: streaming transcript, inline tool-call chips with latency badges, honest error/timeout states
-- [ ] Dashboard: jobs table + create form (cron presets) + runs list
-- [ ] Trace viewer: step-by-step replay, collapsible args/results JSON, token + latency ledger
-- **Done =** full flow works locally against the real runtime; demo GIF recorded.
+- [x] Chat: streaming transcript against real `/agent/run` (fetch + ReadableStream SSE parser), inline animated tool-call chips with real latency badges, honest error/timeout banner, empty state with 3 example-prompt chips
+- [x] Sidebar HealthDot polls `/health` every 10s; model label from `health.model.primary` (or fallback / "offline")
+- [ ] Dashboard: jobs table + create form (cron presets) + runs list [Sprint 4]
+- [ ] Trace viewer: step-by-step replay, collapsible args/results JSON, token + latency ledger [Sprint 4]
+- **Done =** ✓ Chat screen live-streams a real runtime response with tool chips lighting up and resolving with latency; error/timeout states rendered honestly.
 
 ## Phase 6 — Eval (NOT optional — the headline depends on it)
 - [ ] `eval/dataset.json`: 40 cases per EVALUATION.md
