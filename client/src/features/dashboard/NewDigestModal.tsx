@@ -1,8 +1,8 @@
-import * as Dialog from '@radix-ui/react-dialog';
 import { CSSProperties, useState } from 'react';
 import { Button } from '../../components/Button';
+import { Modal } from '../../components/Modal';
 import { Textarea } from '../../components/Textarea';
-import { colors, fonts, motion, radii, shadows } from '../../theme';
+import { colors, fonts, radii, shadows } from '../../theme';
 import { CRON_PRESETS } from '../../mock/data';
 
 interface Props {
@@ -10,49 +10,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onCreate: (prompt: string, cron: string, cronLabel: string) => void;
 }
-
-const overlayStyle: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(6, 7, 8, 0.55)',
-  backdropFilter: 'blur(6px)',
-  WebkitBackdropFilter: 'blur(6px)',
-  zIndex: 40,
-  animation: `courtside-fade-in ${motion.base}`,
-};
-
-const contentStyle: CSSProperties = {
-  position: 'fixed',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: 'min(520px, calc(100vw - 32px))',
-  maxHeight: 'calc(100vh - 40px)',
-  overflow: 'auto',
-  background: colors.bg4,
-  color: colors.text1,
-  borderRadius: radii.card,
-  boxShadow: shadows.elevHigh,
-  padding: 24,
-  zIndex: 41,
-  animation: `courtside-fade-in ${motion.base}`,
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontFamily: fonts.sans,
-  fontSize: 18,
-  fontWeight: 590,
-  letterSpacing: '-0.014em',
-  color: colors.text1,
-};
-
-const subStyle: CSSProperties = {
-  margin: '4px 0 20px',
-  fontFamily: fonts.sans,
-  fontSize: 13,
-  color: colors.text3,
-};
 
 const labelStyle: CSSProperties = {
   display: 'block',
@@ -112,58 +69,52 @@ export function NewDigestModal({ open, onOpenChange, onCreate }: Props) {
   };
 
   return (
-    <Dialog.Root
+    <Modal
       open={open}
       onOpenChange={(v) => {
         if (!v) reset();
         onOpenChange(v);
       }}
+      title="New digest"
+      description="Schedule a recurring question. The agent will run it and store the trace."
     >
-      <Dialog.Portal>
-        <Dialog.Overlay data-overlay style={overlayStyle} />
-        <Dialog.Content style={contentStyle} aria-describedby={undefined}>
-          <Dialog.Title style={titleStyle}>New digest</Dialog.Title>
-          <p style={subStyle}>Schedule a recurring question. The agent will run it and store the trace.</p>
+      <label style={labelStyle} htmlFor="digest-prompt">
+        Prompt
+      </label>
+      <Textarea
+        id="digest-prompt"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="e.g. Summarize last night's West conference results"
+        autoGrow
+        maxRows={5}
+        style={{ minHeight: 88, marginBottom: 16 }}
+      />
 
-          <label style={labelStyle} htmlFor="digest-prompt">
-            Prompt
-          </label>
-          <Textarea
-            id="digest-prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. Summarize last night's West conference results"
-            autoGrow
-            maxRows={5}
-            style={{ minHeight: 88, marginBottom: 16 }}
-          />
+      <label style={labelStyle} htmlFor="digest-schedule">
+        Schedule
+      </label>
+      <select
+        id="digest-schedule"
+        value={cron}
+        onChange={(e) => setCron(e.target.value)}
+        style={selectStyle}
+      >
+        {CRON_PRESETS.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.label}
+          </option>
+        ))}
+      </select>
 
-          <label style={labelStyle} htmlFor="digest-schedule">
-            Schedule
-          </label>
-          <select
-            id="digest-schedule"
-            value={cron}
-            onChange={(e) => setCron(e.target.value)}
-            style={selectStyle}
-          >
-            {CRON_PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-
-          <div style={footerStyle}>
-            <Dialog.Close asChild>
-              <Button variant="secondary">Cancel</Button>
-            </Dialog.Close>
-            <Button variant="primary" disabled={!prompt.trim()} onClick={submit}>
-              Create
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <div style={footerStyle}>
+        <Modal.Close asChild>
+          <Button variant="secondary">Cancel</Button>
+        </Modal.Close>
+        <Button variant="primary" disabled={!prompt.trim()} onClick={submit}>
+          Create
+        </Button>
+      </div>
+    </Modal>
   );
 }

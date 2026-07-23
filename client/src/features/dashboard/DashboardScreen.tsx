@@ -1,8 +1,9 @@
 import { CSSProperties, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
 import { StatusBadge } from '../../components/StatusBadge';
-import { colors, fonts, motion, radii, shadows } from '../../theme';
+import { colors, fonts, motion } from '../../theme';
 import { RECENT_RUNS, SCHEDULED_JOBS, type RunSummary, type ScheduledJob } from '../../mock/data';
 import { NewDigestModal } from './NewDigestModal';
 
@@ -39,10 +40,7 @@ const sectionTitle: CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const cardStyle: CSSProperties = {
-  background: colors.bg1,
-  borderRadius: radii.card,
-  boxShadow: shadows.elevBorder,
+const cardExtra: CSSProperties = {
   overflow: 'hidden',
   marginBottom: 32,
 };
@@ -130,7 +128,7 @@ export function DashboardScreen() {
       </header>
 
       <h2 style={sectionTitle}>Scheduled</h2>
-      <div style={cardStyle}>
+      <Card style={cardExtra}>
         <table style={tableStyle}>
           <colgroup>
             <col style={{ width: '46%' }} />
@@ -217,10 +215,10 @@ export function DashboardScreen() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       <h2 style={sectionTitle}>Recent runs</h2>
-      <div style={cardStyle}>
+      <Card style={cardExtra}>
         <table style={tableStyle}>
           <colgroup>
             <col style={{ width: '40%' }} />
@@ -246,7 +244,7 @@ export function DashboardScreen() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       <NewDigestModal open={modalOpen} onOpenChange={setModalOpen} onCreate={createJob} />
     </div>

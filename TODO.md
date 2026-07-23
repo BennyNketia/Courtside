@@ -39,6 +39,8 @@ Rules: phases in order; a phase is done only when its **Done =** line is true; u
 ## Phase 5 — Client
 - [x] Chat: streaming transcript against real `/agent/run` (fetch + ReadableStream SSE parser), inline animated tool-call chips with real latency badges, honest error/timeout banner, empty state with 3 example-prompt chips
 - [x] Sidebar HealthDot polls `/health` every 10s; model label from `health.model.primary` (or fallback / "offline")
+- [x] Shared components extracted per DESIGN.md: `Button` (×4 variants), `Input`, `Textarea`, `Card` (+ `Panel` variant), `Modal` (wraps Radix Dialog with `--elev-high`), `Badge` (`StatusBadge`), `ToolChip`, `HealthDot`, `Spinner`, `EmptyState`
+- [x] End-to-end verified live: MCP server (3001) + runtime (3002) + client (5174) with `Origin: 5174` preflight → `POST /agent/run` streams `tool_call`/`tool_result`/`token`/`done`, run persists to `Run` + `Step` tables, `* * * * *` job fires and its trace lands in `/runs` linked by `jobId`
 - [ ] Dashboard: jobs table + create form (cron presets) + runs list [Sprint 4]
 - [ ] Trace viewer: step-by-step replay, collapsible args/results JSON, token + latency ledger [Sprint 4]
 - **Done =** ✓ Chat screen live-streams a real runtime response with tool chips lighting up and resolving with latency; error/timeout states rendered honestly.
